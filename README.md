@@ -66,3 +66,8 @@ Edit `await invoke("connect", [...]` line in `connect()` function in `src/backen
 -   (alternatively) Connecting to official testnet:
 
 Same as above, but instead local node's Multiaddr in `peer`, just insert something that is not Multiaddr, or leave it empty.
+
+
+### Contribute
+
+Make/find an issue & create a PR - All contributions appreciated!
