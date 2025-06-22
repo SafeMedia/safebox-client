@@ -43,7 +43,8 @@
     ],
     "externalBin": [
       "bin/anttp",
-      "bin/dweb"
+      "bin/dweb",
+      "bin/ant"
     ]
   },
   "plugins": {
