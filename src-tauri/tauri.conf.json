@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "yarn dev",
-    "beforeBuildCommand": "yarn build"
+  "beforeDevCommand": "yarn dev",
+  "beforeBuildCommand": "yarn build"
   },
   "app": {
     "windows": [
@@ -29,8 +29,8 @@
   },
   "bundle": {
     "active": true,
-    "category": "Infrastructure",
-    "targets": "deb",
+    "category": "Utilities",
+    "targets": ["deb", "msi", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -38,7 +38,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": []
+    "resources": [
+       "bin/**/*"
+    ],
+    "externalBin": [
+      "bin/anttp",
+      "bin/dweb"
+    ]
   },
   "plugins": {
     "clipboard": {

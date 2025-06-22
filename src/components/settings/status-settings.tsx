@@ -12,8 +12,6 @@ import {
 import { useEffect, useState } from "react";
 import isOnline from "is-online";
 import { useTranslation } from "react-i18next";
-import { useConnection } from "@/providers/connection-provider";
-import { balance as autonomiBalance } from "@/backend/autonomi";
 
 interface StatusItem {
     name: string;
@@ -24,8 +22,6 @@ interface StatusItem {
 
 export default function StatusRow() {
     const { t } = useTranslation();
-    const [hasBalance, setHasBalance] = useState<boolean | null>(null);
-    const { account } = useConnection();
     const [onlineStatus, setOnlineStatus] = useState(false);
 
     // have initial checks completed before showing the UI
@@ -50,30 +46,7 @@ export default function StatusRow() {
         return () => clearInterval(intervalId);
     }, []);
 
-    useEffect(() => {
-        setHasBalance(false);
-        const checkBalance = async () => {
-            const balance = await autonomiBalance();
-            setHasBalance(
-                balance !== null &&
-                    !isNaN(parseFloat(balance)) &&
-                    balance !== "0" &&
-                    balance !== "0.0" &&
-                    account != null
-            );
-        };
-        checkBalance();
-    }, [account]);
-
     const statusList: StatusItem[] = [
-        {
-            name: t("tokenBalance"),
-            icon: hasBalance ? CheckIcon : OctagonXIcon,
-            description: hasBalance
-                ? t("yourWalletAddressContainsTokens")
-                : t("YourWalletAddressIsEmpty"),
-            bgColor: hasBalance ? "bg-green-600" : "bg-red-600",
-        },
         {
             name: t("internetConnection"),
             icon: onlineStatus ? CheckIcon : OctagonXIcon,
@@ -81,20 +54,6 @@ export default function StatusRow() {
                 ? t("youAreConnectedToTheInternet")
                 : t("youAreNotConnectedToTheInternet"),
             bgColor: onlineStatus ? "bg-green-600" : "bg-red-600",
-        },
-        {
-            name: t("autonomiNode"),
-            icon: OctagonXIcon,
-            description: t("yourAutonomiNodeIsNotConnected"),
-            bgColor: "bg-red-600",
-        },
-        {
-            name: t("walletConnected"),
-            icon: account ? CheckIcon : OctagonXIcon,
-            description: account
-                ? t("yourWalletIsConnected")
-                : t("yourWalletIsNotConnected"),
-            bgColor: account ? "bg-green-600" : "bg-red-600",
         },
     ];
 

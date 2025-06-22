@@ -1,33 +1,28 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { download } from "@/backend/logic";
 import { UploadPayload } from "@/types/upload-file-event";
-import { useConnection } from "@/providers/connection-provider";
 import { AccountUser } from "@/types/account-user";
 import { ToastPayload } from "@/types/payloads";
+import { Button } from "./ui/button";
 
 export default function Dashboard() {
-    const { account } = useConnection();
-
-    const accountRef = useRef<AccountUser | null>(null); // create a ref
-
-    // whenever account changes, keep the ref updated
-    useEffect(() => {
-        accountRef.current = account;
-    }, [account]);
+    const accountRef = useRef<AccountUser | null>(null);
+    const [isClientRunning, setIsClientRunning] = useState(false);
 
     useEffect(() => {
+        // Listen for download-file events
         const unlistenDownload = listen<string>(
             "download-file",
             async (event) => {
                 toast("Download Request", {
                     description: event.payload,
                 });
-
                 try {
                     await download(event.payload, event.payload);
-                } catch (error) {
+                } catch {
                     toast("Download Failed", {
                         description: `Failed to download: ${event.payload}`,
                     });
@@ -35,6 +30,7 @@ export default function Dashboard() {
             }
         );
 
+        // Listen for upload-file events
         const unlistenUpload = listen<UploadPayload>(
             "upload-file",
             async (event) => {
@@ -44,14 +40,10 @@ export default function Dashboard() {
                     });
                     return;
                 }
-
-                // assume event.payload already contains all the info needed
                 const { name, success, error, xorname } = event.payload;
 
                 if (success) {
-                    toast(`File '${name}' Uploaded`, {
-                        description: `${xorname}`,
-                    });
+                    toast(`File '${name}' Uploaded`, { description: xorname });
                 } else if (error) {
                     toast("Upload Failed", {
                         description: "Something went wrong during upload.",
@@ -64,17 +56,13 @@ export default function Dashboard() {
             }
         );
 
-        const unlistenToast = listen<ToastPayload>(
-            "show-toast",
-            async (event) => {
-                const { title, description } = event.payload;
+        // Listen for generic toast events
+        const unlistenToast = listen<ToastPayload>("show-toast", (event) => {
+            const { title, description } = event.payload;
+            toast(title, { description });
+        });
 
-                toast(title, {
-                    description,
-                });
-            }
-        );
-
+        // Cleanup listeners on unmount
         return () => {
             unlistenDownload.then((fn) => fn());
             unlistenUpload.then((fn) => fn());
@@ -82,9 +70,30 @@ export default function Dashboard() {
         };
     }, []);
 
+    // Toggles the client on/off by invoking Rust commands
+    const toggleClient = async () => {
+        try {
+            if (!isClientRunning) {
+                await invoke("start_server");
+                toast.success("Server started");
+                setIsClientRunning(true);
+            } else {
+                await invoke("stop_server");
+                toast.info("Server stopped");
+                setIsClientRunning(false);
+            }
+        } catch (e: any) {
+            toast.error("Client action failed", { description: e.toString() });
+        }
+    };
+
     return (
         <div className="p-4 space-y-2">
-            <div className="flex flex-row"></div>
+            <div className="flex flex-row gap-2 items-center">
+                <Button onClick={toggleClient}>
+                    {isClientRunning ? "Stop Server" : "Start Server"}
+                </Button>
+            </div>
         </div>
     );
 }

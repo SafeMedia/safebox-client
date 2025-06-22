@@ -1,5 +1,4 @@
 import {
-    connectInner,
     signIn as autonomiSignIn,
     register,
     clientAddress,
@@ -15,12 +14,7 @@ import {
     SimpleAccountUser,
     RecoverAccountUser,
 } from "@/types/account-user";
-import {
-    getDownloadFolder,
-    getSelectedNetwork,
-    getTestnetPeerAddress,
-} from "@/backend/backend-store";
-import Networks from "@/enums/networks";
+import { getDownloadFolder } from "@/backend/backend-store";
 import { isEthereumAddress } from "@/lib/utils/address";
 import { AutonomiFile } from "@/types/autonomi-file";
 
@@ -29,44 +23,6 @@ import { AutonomiFile } from "@/types/autonomi-file";
 // =======
 
 const USER_SESSION_KEY = "user";
-
-export async function connect(override?: {
-    network: Networks;
-    peer?: string;
-}): Promise<boolean> {
-    console.log("connecting...");
-    try {
-        let peer = undefined;
-        let network = undefined;
-
-        // this is used if connecting from the disconnected-panel component
-        if (override && override.network) {
-            network = override.network;
-            if (network == Networks.TESTNET) {
-                peer = override.peer;
-            }
-        } else {
-            network = await getSelectedNetwork();
-            if (network == Networks.TESTNET) {
-                peer = await getTestnetPeerAddress();
-            }
-        }
-
-        if (network == Networks.TESTNET && !peer) {
-            console.error("Peer not supplied for TESTNET.");
-            return false;
-        }
-
-        const success = await connectInner(peer ?? undefined);
-        if (success) {
-            console.log("connected.");
-            return true;
-        }
-    } catch (e) {
-        console.error("connect: ", e);
-    }
-    return false;
-}
 
 export async function registerUser(
     newUser: RegisterAccountUser | RecoverAccountUser

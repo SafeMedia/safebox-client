@@ -12,14 +12,12 @@ import {
     TooltipProvider,
 } from "@/components/ui/tooltip";
 import { Link, useLocation } from "react-router-dom";
-import { useConnection } from "@/providers/connection-provider";
 
 interface MenuProps {
     isOpen: boolean | undefined;
 }
 
 export function Menu({ isOpen }: MenuProps) {
-    const { account } = useConnection();
     const location = useLocation(); // Get the current location (pathname) from react-router
     const menuList = getMenuList(location.pathname); // Use location.pathname instead of manually tracking pathname
     const pathname = location.pathname;
@@ -31,7 +29,7 @@ export function Menu({ isOpen }: MenuProps) {
                     {menuList.map(({ groupLabel, menus }, groupIndex) => {
                         // filter out top-level menus based on requiresAuth
                         const filteredMenus = menus.filter(
-                            (menu) => !menu.requiresAuth || account
+                            (menu) => !menu.requiresAuth
                         );
 
                         if (filteredMenus.length === 0) return null; // Skip group if no menus are visible
@@ -141,8 +139,7 @@ export function Menu({ isOpen }: MenuProps) {
                                                     }
                                                     submenus={submenus.filter(
                                                         (submenu) =>
-                                                            !submenu.requiresAuth ||
-                                                            account
+                                                            !submenu.requiresAuth
                                                     )} // filter submenus
                                                     isOpen={isOpen}
                                                 />

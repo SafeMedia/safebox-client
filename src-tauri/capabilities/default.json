@@ -26,6 +26,7 @@
     "fs:allow-create",
     "fs:allow-write-text-file",
     "dialog:allow-open",
+    "shell:allow-execute",
     {
       "identifier": "fs:scope",
       "allow": [
