@@ -218,6 +218,15 @@ pub async fn do_upload(payload: UploadFilePayload, _handle: &AppHandle) -> Resul
 }
 
 #[tauri::command]
+fn is_server_running() -> bool {
+    let ant_lock = ANT_PROCESS.lock().unwrap();
+    let anttp_lock = ANTPP_PROCESS.lock().unwrap();
+    let dweb_lock = DWEB_PROCESS.lock().unwrap();
+
+    ant_lock.is_some() || anttp_lock.is_some() || dweb_lock.is_some()
+}
+
+#[tauri::command]
 async fn start_server(app: AppHandle, window: Window) -> Result<String, String> {
     let mut ant_lock = ANT_PROCESS.lock().unwrap();
     let mut anttp_lock = ANTPP_PROCESS.lock().unwrap();
@@ -413,6 +422,7 @@ pub fn run() {
             set_dweb_port,
             set_websocket_port,
             kill_process_on_port,
+            is_server_running,
         ])
         .setup(|app| {
             let handle = app.handle();

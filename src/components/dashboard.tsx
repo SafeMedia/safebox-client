@@ -17,6 +17,15 @@ export default function Dashboard() {
     const [websocketPort, setWebsocketPort] = useState<number>(8084);
     const [portToKill, setPortToKill] = useState<number>(0);
 
+    const checkServerRunning = async () => {
+        try {
+            const running = await invoke<boolean>("is_server_running");
+            setIsClientRunning(running);
+        } catch {
+            setIsClientRunning(false);
+        }
+    };
+
     const refreshPorts = async () => {
         try {
             const [ant, anttp, dweb, websocket] = await invoke<
@@ -34,6 +43,7 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
+        checkServerRunning();
         refreshPorts();
 
         const unlistenDownload = listen<string>(
