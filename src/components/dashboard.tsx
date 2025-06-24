@@ -14,16 +14,18 @@ export default function Dashboard() {
     const [antPort, setAntPort] = useState<number>(8081);
     const [anttpPort, setAnttpPort] = useState<number>(8082);
     const [dwebPort, setDwebPort] = useState<number>(8083);
+    const [websocketPort, setWebsocketPort] = useState<number>(8084);
 
     // Fetch ports from backend
     const refreshPorts = async () => {
         try {
-            const [ant, anttp, dweb] = await invoke<[number, number, number]>(
-                "get_ports"
-            );
+            const [ant, anttp, dweb, websocket] = await invoke<
+                [number, number, number, number]
+            >("get_ports");
             setAntPort(ant);
             setAnttpPort(anttp);
             setDwebPort(dweb);
+            setWebsocketPort(websocket);
         } catch (e) {
             toast.error("Failed to get ports", {
                 description: (e as Error).toString(),
@@ -121,7 +123,7 @@ export default function Dashboard() {
             refreshPorts();
             return;
         }
-        if (hasPortConflict(antPort, anttpPort, dwebPort)) {
+        if (hasPortConflict(antPort, anttpPort, dwebPort, websocketPort)) {
             toast.error("Port conflict detected! Please use unique ports.");
             refreshPorts();
             return;
@@ -143,7 +145,7 @@ export default function Dashboard() {
             refreshPorts();
             return;
         }
-        if (hasPortConflict(antPort, anttpPort, dwebPort)) {
+        if (hasPortConflict(antPort, anttpPort, dwebPort, websocketPort)) {
             toast.error("Port conflict detected! Please use unique ports.");
             refreshPorts();
             return;
@@ -165,7 +167,7 @@ export default function Dashboard() {
             refreshPorts();
             return;
         }
-        if (hasPortConflict(antPort, anttpPort, dwebPort)) {
+        if (hasPortConflict(antPort, anttpPort, dwebPort, websocketPort)) {
             toast.error("Port conflict detected! Please use unique ports.");
             refreshPorts();
             return;
@@ -175,6 +177,28 @@ export default function Dashboard() {
             toast.success(`dweb port set to ${dwebPort}`);
         } catch (e: any) {
             toast.error("Failed to set dweb port", {
+                description: e.toString(),
+            });
+            await refreshPorts();
+        }
+    };
+
+    const updateWebsocketPort = async () => {
+        if (dwebPort < 1 || dwebPort > 65535) {
+            toast.error("Invalid websocket port number");
+            refreshPorts();
+            return;
+        }
+        if (hasPortConflict(antPort, anttpPort, dwebPort, websocketPort)) {
+            toast.error("Port conflict detected! Please use unique ports.");
+            refreshPorts();
+            return;
+        }
+        try {
+            await invoke("set_websocket_port", { port: websocketPort });
+            toast.success(`websocket port set to ${websocketPort}`);
+        } catch (e: any) {
+            toast.error("Failed to set websocket port", {
                 description: e.toString(),
             });
             await refreshPorts();
@@ -234,6 +258,25 @@ export default function Dashboard() {
                 />
                 <Button onClick={updateDwebPort} disabled={isClientRunning}>
                     Set DWeb port
+                </Button>
+            </div>
+
+            {/* websocket port */}
+            <div className="flex flex-row gap-2 items-center">
+                <input
+                    type="number"
+                    value={websocketPort}
+                    disabled={isClientRunning}
+                    onChange={(e) => setWebsocketPort(Number(e.target.value))}
+                    className="border rounded p-1 w-24"
+                    min={1}
+                    max={65535}
+                />
+                <Button
+                    onClick={updateWebsocketPort}
+                    disabled={isClientRunning}
+                >
+                    Set Websocket port
                 </Button>
             </div>
         </div>

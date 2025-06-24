@@ -42,6 +42,8 @@ tokio-tungstenite = "0.20"
 anttp = "=0.7.0"
 autonomi = "0.4.6"
 once_cell = "1.21.3"
+tempfile = "3.20.0"
+ctrlc = "3.4.7"
 
 
 
