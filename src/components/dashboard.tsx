@@ -15,8 +15,8 @@ export default function Dashboard() {
     const [anttpPort, setAnttpPort] = useState<number>(8082);
     const [dwebPort, setDwebPort] = useState<number>(8083);
     const [websocketPort, setWebsocketPort] = useState<number>(8084);
+    const [portToKill, setPortToKill] = useState<number>(0);
 
-    // Fetch ports from backend
     const refreshPorts = async () => {
         try {
             const [ant, anttp, dweb, websocket] = await invoke<
@@ -36,7 +36,6 @@ export default function Dashboard() {
     useEffect(() => {
         refreshPorts();
 
-        // Event listeners
         const unlistenDownload = listen<string>(
             "download-file",
             async (event) => {
@@ -89,20 +88,34 @@ export default function Dashboard() {
 
     function hasPortConflict(...ports: number[]) {
         const set = new Set(ports);
-        return set.size !== ports.length; // true if duplicates exist
+        return set.size !== ports.length;
     }
 
-    // Toggles the client on/off by invoking Rust commands
     const toggleClient = async () => {
-        if (hasPortConflict(antPort, anttpPort, dwebPort)) {
-            toast.error(
-                "Port conflict detected! Please use unique ports for ant, anttp, and dweb."
-            );
-            return;
-        }
-
         try {
             if (!isClientRunning) {
+                const [savedAnt, savedAnttp, savedDweb, savedWs] = await invoke<
+                    [number, number, number, number]
+                >("get_ports");
+
+                if (
+                    antPort !== savedAnt ||
+                    anttpPort !== savedAnttp ||
+                    dwebPort !== savedDweb ||
+                    websocketPort !== savedWs
+                ) {
+                    setAntPort(savedAnt);
+                    setAnttpPort(savedAnttp);
+                    setDwebPort(savedDweb);
+                    setWebsocketPort(savedWs);
+                    toast.info("Ports reset to saved configuration.");
+                }
+
+                if (hasPortConflict(savedAnt, savedAnttp, savedDweb, savedWs)) {
+                    toast.error("Port conflict detected in saved ports!");
+                    return;
+                }
+
                 await invoke("start_server");
                 toast.success("Server started");
                 setIsClientRunning(true);
@@ -116,7 +129,6 @@ export default function Dashboard() {
         }
     };
 
-    // Update port and revert input if setting port fails or conflicts
     const updateAntPort = async () => {
         if (antPort < 1 || antPort > 65535) {
             toast.error("Invalid ant port number");
@@ -184,7 +196,7 @@ export default function Dashboard() {
     };
 
     const updateWebsocketPort = async () => {
-        if (dwebPort < 1 || dwebPort > 65535) {
+        if (websocketPort < 1 || websocketPort > 65535) {
             toast.error("Invalid websocket port number");
             refreshPorts();
             return;
@@ -202,6 +214,22 @@ export default function Dashboard() {
                 description: e.toString(),
             });
             await refreshPorts();
+        }
+    };
+
+    const handleKillPort = async () => {
+        if (portToKill < 1 || portToKill > 65535) {
+            toast.error("Invalid port number to kill");
+            return;
+        }
+
+        try {
+            await invoke("kill_process_on_port", { port: portToKill });
+            toast.success(`Process on port ${portToKill} killed`);
+        } catch (e: any) {
+            toast.error("Failed to kill process", {
+                description: e.toString(),
+            });
         }
     };
 
@@ -277,6 +305,21 @@ export default function Dashboard() {
                     disabled={isClientRunning}
                 >
                     Set Websocket port
+                </Button>
+            </div>
+
+            <div className="flex flex-row gap-2 items-center p-4 border-t mt-4 -mx-4">
+                <input
+                    type="number"
+                    placeholder="Enter port"
+                    value={portToKill}
+                    onChange={(e) => setPortToKill(Number(e.target.value))}
+                    className="border rounded p-1 w-32"
+                    min={1}
+                    max={65535}
+                />
+                <Button onClick={handleKillPort}>
+                    Kill Process using port
                 </Button>
             </div>
         </div>

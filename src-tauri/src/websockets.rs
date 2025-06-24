@@ -1,5 +1,7 @@
 use crate::do_upload;
 use crate::types::{ToastEvent, UploadError, UploadFileEvent, UploadFilePayload};
+use crate::ANTTP_PORT;
+use crate::DWEB_PORT;
 use dirs::data_dir;
 use futures::{stream::StreamExt, SinkExt};
 use once_cell::sync::Lazy;
@@ -92,7 +94,11 @@ pub async fn start_websocket_server(
         .and(warp::ws())
         .map(|ws: warp::ws::Ws| ws.on_upgrade(move |socket| handle_root_ws(socket)));
 
-    let routes = upload_ws.or(download_ws).or(root_ws);
+    let routes = upload_ws
+        .or(download_ws)
+        .or(root_ws)
+        .or(get_anttp_port())
+        .or(get_dweb_port());
 
     let addr = ([127, 0, 0, 1], port);
 
@@ -106,6 +112,20 @@ pub async fn start_websocket_server(
     });
 
     server.await;
+}
+
+fn get_anttp_port() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("getAntTPPort").map(|| {
+        let port: u16 = *ANTTP_PORT.lock().unwrap();
+        warp::reply::json(&json!({ "port": port }))
+    })
+}
+
+fn get_dweb_port() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path("getDWebPort").map(|| {
+        let port: u16 = *DWEB_PORT.lock().unwrap();
+        warp::reply::json(&json!({ "port": port }))
+    })
 }
 
 fn with_handle(

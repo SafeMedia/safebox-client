@@ -23,7 +23,7 @@ mod types;
 mod websockets;
 
 pub static ANT_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8081));
-pub static ANTPP_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8082));
+pub static ANTTP_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8082));
 pub static DWEB_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8083));
 pub static WEBSOCKET_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8084));
 
@@ -38,7 +38,7 @@ fn is_port_in_use(port: u16) -> bool {
 #[tauri::command]
 fn get_ports() -> Result<(u16, u16, u16, u16), String> {
     let ant_port = *ANT_PORT.lock().unwrap();
-    let anttp_port = *ANTPP_PORT.lock().unwrap();
+    let anttp_port = *ANTTP_PORT.lock().unwrap();
     let dweb_port = *DWEB_PORT.lock().unwrap();
     let websocket_port = *WEBSOCKET_PORT.lock().unwrap();
     Ok((ant_port, anttp_port, dweb_port, websocket_port))
@@ -58,7 +58,7 @@ fn set_anttp_port(port: u16) -> Result<(), String> {
     if port == 0 {
         return Err("Port must be > 0".into());
     }
-    *ANTPP_PORT.lock().unwrap() = port;
+    *ANTTP_PORT.lock().unwrap() = port;
     Ok(())
 }
 
@@ -145,6 +145,50 @@ fn handle_permission_error(window: &Window, binary_name: &str) {
     }
 }
 
+#[tauri::command]
+fn kill_process_on_port(port: u16) -> Result<(), String> {
+    use std::process::Command;
+
+    #[cfg(target_os = "windows")]
+    let output = Command::new("cmd")
+        .args(["/C", &format!("netstat -ano | findstr :{}", port)])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    #[cfg(not(target_os = "windows"))]
+    let output = Command::new("sh")
+        .args(["-c", &format!("lsof -t -i :{}", port)])
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    #[cfg(target_os = "windows")]
+    {
+        for line in stdout.lines() {
+            if let Some(pid) = line.split_whitespace().last() {
+                Command::new("taskkill")
+                    .args(["/PID", pid, "/F"])
+                    .output()
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        for pid in stdout.lines() {
+            Command::new("kill")
+                .arg("-9")
+                .arg(pid)
+                .output()
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
 pub async fn do_upload(payload: UploadFilePayload, _handle: &AppHandle) -> Result<String, String> {
     // write data to a temp file
     let mut temp_file = NamedTempFile::new().map_err(|e| e.to_string())?;
@@ -180,7 +224,7 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
     let mut dweb_lock = DWEB_PROCESS.lock().unwrap();
 
     let ant_port = *ANT_PORT.lock().unwrap();
-    let anttp_port = *ANTPP_PORT.lock().unwrap();
+    let anttp_port = *ANTTP_PORT.lock().unwrap();
     let dweb_port = *DWEB_PORT.lock().unwrap();
 
     if ant_lock.is_some() || anttp_lock.is_some() || dweb_lock.is_some() {
@@ -368,6 +412,7 @@ pub fn run() {
             set_anttp_port,
             set_dweb_port,
             set_websocket_port,
+            kill_process_on_port,
         ])
         .setup(|app| {
             let handle = app.handle();
