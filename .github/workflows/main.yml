@@ -42,14 +42,13 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libjavascriptcoregtk-4.1-dev \
             libsoup-3.0-dev \
-            libappindicator3-dev \
+            libayatana-appindicator3-dev \
             librsvg2-dev \
             build-essential \
             curl \
             wget \
             libssl-dev \
             libgtk-3-dev \
-            libayatana-appindicator3-dev \
             pkg-config \
             libglib2.0-dev \
             patchelf
