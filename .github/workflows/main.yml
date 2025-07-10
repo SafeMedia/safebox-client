@@ -1,6 +1,5 @@
 name: "Build and Release Autonomi Local Client"
 
-
 on:
   push:
     tags:
@@ -12,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-22.04, windows-latest]
 
     steps:
       - name: Checkout code
@@ -36,10 +35,20 @@ jobs:
           key: ${{ runner.os }}-tauri-${{ hashFiles('**/Cargo.lock', '**/package-lock.json') }}
 
       - name: Install system dependencies (Linux only)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev pkg-config libglib2.0-dev
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
+            build-essential \
+            curl \
+            wget \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pkg-config \
+            libglib2.0-dev
 
       - name: Install dependencies
         run: npm install
