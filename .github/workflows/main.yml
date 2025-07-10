@@ -47,7 +47,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             pkg-config \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libsoup-3.0-dev
 
       - name: Install dependencies
         run: npm install
