@@ -1,5 +1,6 @@
 name: "Build and Release Autonomi Local Client"
 
+
 on:
   push:
     tags:
@@ -17,7 +18,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -25,7 +26,23 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust and Node dependencies
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.0-dev \
+            build-essential \
+            curl \
+            wget \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pkg-config \
+            libglib2.0-dev
+
+      - name: Cache Rust and Node modules
         uses: actions/cache@v4
         with:
           path: |
@@ -63,6 +80,9 @@ jobs:
           path: dist
 
       - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
         uses: softprops/action-gh-release@v2
         with:
           files: dist/**/*
