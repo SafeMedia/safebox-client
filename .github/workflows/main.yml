@@ -87,12 +87,12 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "Release ${{ github.ref_name }}"
           files: |
-            dist/**/*.msi
-            dist/**/*.exe
-            dist/**/*.dmg
-            dist/**/*.app
-            dist/**/*.AppImage
-            dist/**/*.deb
+            dist/**/bundle/**/*.msi
+            dist/**/bundle/**/*.exe
+            dist/**/bundle/**/*.dmg
+            dist/**/bundle/**/*.app
+            dist/**/bundle/**/*.AppImage
+            dist/**/bundle/**/*.deb
           draft: false
           prerelease: false
         env:
