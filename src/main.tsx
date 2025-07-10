@@ -4,7 +4,6 @@ import { BrowserRouter } from "react-router-dom";
 import RootLayout from "./components/root-layout";
 import AppRoutes from "./routes";
 import { Toaster } from "sonner";
-import "sonner/dist/styles.css";
 
 import { StorageProvider } from "./providers/storage-provider";
 
