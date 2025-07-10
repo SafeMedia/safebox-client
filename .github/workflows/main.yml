@@ -83,12 +83,13 @@ jobs:
 
       - name: Remove unwanted binaries
         run: |
-          rm -f dist/**/*/ant*.exe
-          rm -f dist/**/*/dweb*.exe
-          rm -f dist/**/*/anttp*.exe
-          rm -f dist/**/*/icon.icns
-          rm -f dist/**/*/template.applescript
-          rm -f dist/**/*/md5sums
+          find dist -type f -name "ant*.exe" -delete
+          find dist -type f -name "dweb*.exe" -delete
+          find dist -type f -name "anttp*.exe" -delete
+          find dist -type f -name "icon.icns" -delete
+          find dist -type f -name "template.applescript" -delete
+          find dist -type f -name "md5sums" -delete
+
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
