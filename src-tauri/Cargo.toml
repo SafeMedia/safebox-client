@@ -46,7 +46,6 @@ tempfile = "3.20.0"
 ctrlc = "3.4.7"
 
 
-
 [target.'cfg(target_os = "linux")'.dependencies]
 warp = "*"
 serde_urlencoded = "*"
