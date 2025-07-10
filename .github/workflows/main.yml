@@ -84,4 +84,16 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**/*
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          files: |
+            dist/**/*.msi
+            dist/**/*.exe
+            dist/**/*.dmg
+            dist/**/*.app
+            dist/**/*.AppImage
+            dist/**/*.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
