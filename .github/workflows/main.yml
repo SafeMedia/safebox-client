@@ -1,5 +1,4 @@
 name: "Build and Release Autonomi Local Client"
-
 on:
   push:
     tags:
@@ -56,13 +55,15 @@ jobs:
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli
 
-      - name: Build Tauri app
+      - name: Build Tauri app (Ubuntu with PKG_CONFIG_PATH)
+        if: matrix.os == 'ubuntu-22.04'
         run: |
-          # Set PKG_CONFIG_PATH to find javascriptcoregtk-4.0
-          if [[ "${{ matrix.os }}" == "ubuntu-22.04" ]]; then
-            export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
-          fi
+          export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
           npm run tauri build
+
+      - name: Build Tauri app (macOS/Windows)
+        if: matrix.os != 'ubuntu-22.04'
+        run: npm run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
