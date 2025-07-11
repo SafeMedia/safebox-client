@@ -81,7 +81,29 @@ jobs:
         with:
           path: dist
 
+      - name: Remove unwanted binaries
+        run: |
+          find dist -type f -name "ant*.exe" -delete
+          find dist -type f -name "dweb*.exe" -delete
+          find dist -type f -name "anttp*.exe" -delete
+          find dist -type f -name "icon.icns" -delete
+          find dist -type f -name "template.applescript" -delete
+          find dist -type f -name "md5sums" -delete
+
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**/*
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          files: |
+            dist/**/*.msi
+            dist/**/*.exe
+            dist/**/*.dmg
+            dist/**/*.app
+            dist/**/*.AppImage
+            dist/**/*.deb
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
