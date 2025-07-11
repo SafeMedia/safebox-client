@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { download } from "@/backend/logic";
@@ -36,9 +36,7 @@ export default function Dashboard() {
             setDwebPort(dweb);
             setWebsocketPort(websocket);
         } catch (e) {
-            toast.error("Failed to get ports", {
-                description: (e as Error).toString(),
-            });
+            toast("Failed to get ports" + ": " + (e as Error).toString());
         }
     };
 
@@ -49,13 +47,15 @@ export default function Dashboard() {
         const unlistenDownload = listen<string>(
             "download-file",
             async (event) => {
-                toast("Download Request", { description: event.payload });
+                toast("Download Request" + ": " + event.payload);
                 try {
                     await download(event.payload, event.payload);
                 } catch {
-                    toast.error("Download Failed", {
-                        description: `Failed to download: ${event.payload}`,
-                    });
+                    toast(
+                        "Download Failed" +
+                            ": " +
+                            `Failed to download: ${event.payload}`
+                    );
                 }
             }
         );
@@ -64,29 +64,36 @@ export default function Dashboard() {
             "upload-file",
             async (event) => {
                 if (!accountRef.current) {
-                    toast.error("Not Signed In", {
-                        description: `Upload requested but you are not signed in`,
-                    });
+                    toast(
+                        "Not Signed In" +
+                            ": " +
+                            `Upload requested but you are not signed in`
+                    );
+
                     return;
                 }
                 const { name, success, error, xorname } = event.payload;
                 if (success) {
-                    toast(`File '${name}' Uploaded`, { description: xorname });
+                    toast(`File '${name}' Uploaded` + ": " + xorname);
                 } else if (error) {
-                    toast.error("Upload Failed", {
-                        description: "Something went wrong during upload.",
-                    });
+                    toast(
+                        "Upload Failed" +
+                            ": " +
+                            "Something went wrong during upload."
+                    );
                 } else {
-                    toast.error("Unknown Upload Status", {
-                        description: `Could not determine result for "${name}"`,
-                    });
+                    toast(
+                        "Unknown Upload Status" +
+                            ": " +
+                            `Could not determine result for "${name}"`
+                    );
                 }
             }
         );
 
         const unlistenToast = listen<ToastPayload>("show-toast", (event) => {
             const { title, description } = event.payload;
-            toast(title, { description });
+            toast(title + ": " + description);
         });
 
         return () => {
@@ -135,7 +142,7 @@ export default function Dashboard() {
                 setIsClientRunning(false);
             }
         } catch (e: any) {
-            toast.error("Client action failed", { description: e.toString() });
+            toast("Client action failed" + ": " + e.toString());
         }
     };
 
@@ -154,9 +161,8 @@ export default function Dashboard() {
             await invoke("set_ant_port", { port: antPort });
             toast.success(`ant port set to ${antPort}`);
         } catch (e: any) {
-            toast.error("Failed to set ant port", {
-                description: e.toString(),
-            });
+            toast("Failed to set ant port" + ": " + e.toString());
+
             await refreshPorts();
         }
     };
@@ -176,9 +182,8 @@ export default function Dashboard() {
             await invoke("set_anttp_port", { port: anttpPort });
             toast.success(`anttp port set to ${anttpPort}`);
         } catch (e: any) {
-            toast.error("Failed to set anttp port", {
-                description: e.toString(),
-            });
+            toast("Failed to set anttp port" + ": " + e.toString());
+
             await refreshPorts();
         }
     };
@@ -198,9 +203,8 @@ export default function Dashboard() {
             await invoke("set_dweb_port", { port: dwebPort });
             toast.success(`dweb port set to ${dwebPort}`);
         } catch (e: any) {
-            toast.error("Failed to set dweb port", {
-                description: e.toString(),
-            });
+            toast("Failed to set dweb port" + ": " + e.toString());
+
             await refreshPorts();
         }
     };
@@ -220,9 +224,7 @@ export default function Dashboard() {
             await invoke("set_websocket_port", { port: websocketPort });
             toast.success(`websocket port set to ${websocketPort}`);
         } catch (e: any) {
-            toast.error("Failed to set websocket port", {
-                description: e.toString(),
-            });
+            toast("Failed to set websocket port" + ": " + e.toString());
             await refreshPorts();
         }
     };
@@ -237,10 +239,12 @@ export default function Dashboard() {
             await invoke("kill_process_on_port", { port: portToKill });
             toast.success(`Process on port ${portToKill} killed`);
         } catch (e: any) {
-            toast.error("Failed to kill process", {
-                description: e.toString(),
-            });
+            toast("Failed to kill process" + ": " + e.toString());
         }
+    };
+
+    const testMetamaskTXSigning = async () => {
+        console.log("test");
     };
 
     return (

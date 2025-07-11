@@ -25,7 +25,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { useLanguage } from "@/providers/language-provider";
 import { languageOptions } from "@/enums/languages";
 import { useTranslation } from "react-i18next";
@@ -49,9 +49,11 @@ export default function LanguageSwitcher() {
         const selectedLanguage = data.language;
         if (selectedLanguage) {
             setLanguage(selectedLanguage); // Update the language using the context provider's function
-            toast(t("languageUpdated"), {
-                description: t("yourSelectedLanguageHasBeenUpdated"),
-            });
+            toast(
+                t("languageUpdated") +
+                    ": " +
+                    t("yourSelectedLanguageHasBeenUpdated")
+            );
         }
     }
 

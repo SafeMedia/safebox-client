@@ -11,7 +11,6 @@ export default function Settings() {
     const location = useLocation();
 
     const secondaryNavigation = [
-        { name: t("status"), href: "/settings/status", current: false },
         { name: t("storage"), href: "/settings/storage", current: false },
         {
             name: t("notifications"),
@@ -23,7 +22,6 @@ export default function Settings() {
             href: "/settings/preference",
             current: false,
         },
-        { name: t("network"), href: "/settings/network", current: false },
     ];
 
     // initialize pages with default settings page
@@ -46,7 +44,7 @@ export default function Settings() {
 
         // check if the current path is not set, then navigate to status by default
         if (location.pathname === "/settings") {
-            navigate("/settings/status"); // navigate to status settings by default
+            navigate("/settings/storage"); // navigate to status settings by default
         }
     }, [location.pathname, navigate]);
 

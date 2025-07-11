@@ -59,6 +59,7 @@
     "react-i18next": "^15.1.1",
     "react-router-dom": "^6.26.2",
     "react-stately": "^3.33.0",
+    "react-toastify": "^11.0.5",
     "sonner": "^2.0.6",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",

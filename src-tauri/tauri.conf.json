@@ -1,58 +1,52 @@
 {
-  "$schema": "https://schema.tauri.app/config/2.0.0-rc",
-  "productName": "SafeBoxClient",
-  "version": "0.1.1",
-  "identifier": "client.safebox.desktop",
-  "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:3000",
-  "beforeDevCommand": "yarn dev",
-  "beforeBuildCommand": "yarn build"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "SafeBox Client",
-        "width": 1100,
-        "height": 600,
-        "resizable": true,
-        "fullscreen": false
-      }
-    ],
-    "security": {
-      "csp": "default-src 'self'; media-src 'self' asset: https://asset.localhost;",
-      "assetProtocol": {
-       "enable": true,
-       "scope": ["**", "**/*"]
-     }
-    }
-  },
-  "bundle": {
-    "active": true,
-    "category": "Utilities",
-    "targets": ["deb", "msi", "dmg"],
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "resources": [
-       "bin/**/*"
-    ],
-    "externalBin": [
-      "bin/anttp",
-      "bin/dweb",
-      "bin/ant"
-    ]
-  },
-  "plugins": {
-    "clipboard": {
-      "enabled": true
+    "$schema": "https://schema.tauri.app/config/2.0.0-rc",
+    "productName": "SafeBoxClient",
+    "version": "0.1.1",
+    "identifier": "client.safebox.desktop",
+    "build": {
+        "frontendDist": "../dist",
+        "devUrl": "http://localhost:3000",
+        "beforeDevCommand": "yarn dev",
+        "beforeBuildCommand": "yarn build"
     },
-    "os": {
-      "version": "latest"
+    "app": {
+        "windows": [
+            {
+                "title": "SafeBox Client",
+                "width": 1100,
+                "height": 600,
+                "resizable": true,
+                "fullscreen": false
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self'; media-src 'self' asset: https://asset.localhost;",
+            "assetProtocol": {
+                "enable": true,
+                "scope": ["**", "**/*"]
+            }
+        }
+    },
+    "bundle": {
+        "active": true,
+        "category": "Utilities",
+        "targets": ["deb", "msi", "dmg", "nsis"],
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ],
+        "resources": ["bin/**/*"],
+        "externalBin": ["bin/anttp", "bin/dweb", "bin/ant"]
+    },
+    "plugins": {
+        "clipboard": {
+            "enabled": true
+        },
+        "os": {
+            "version": "latest"
+        }
     }
-  }
 }

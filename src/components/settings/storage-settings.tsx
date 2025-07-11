@@ -4,7 +4,7 @@ import * as path from "@tauri-apps/api/path";
 import { Button } from "../ui/button";
 import { FolderSearchIcon } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import SubDividerLayout from "@/enums/sub-divider-layout";
 import SubDivider from "./sub-divider";
 import { useStorage } from "@/providers/storage-provider";
@@ -111,11 +111,13 @@ export default function StorageSettings() {
                                         value: downloadFolder,
                                     });
                                     await store.save();
-                                    toast(t("downloadFolderUpdated"), {
-                                        description: t(
-                                            "yourDownloadFolderLocationHasBeenUpdated"
-                                        ),
-                                    });
+                                    toast(
+                                        t("downloadFolderUpdated") +
+                                            ": " +
+                                            t(
+                                                "yourDownloadFolderLocationHasBeenUpdated"
+                                            )
+                                    );
                                 }
                             }}
                         >
