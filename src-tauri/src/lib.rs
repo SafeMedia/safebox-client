@@ -44,31 +44,27 @@ fn get_ports() -> Result<(u16, u16, u16, u16), String> {
     Ok((ant_port, anttp_port, dweb_port, websocket_port))
 }
 
-#[tauri::command]
-fn set_ant_port(port: u16) -> Result<(), String> {
+fn set_port(mutex: &Mutex<u16>, port: u16) -> Result<(), String> {
     if port == 0 {
         return Err("Port must be > 0".into());
     }
-    *ANT_PORT.lock().unwrap() = port;
+    *mutex.lock().unwrap() = port;
     Ok(())
+}
+
+#[tauri::command]
+fn set_ant_port(port: u16) -> Result<(), String> {
+    set_port(&ANT_PORT, port)
 }
 
 #[tauri::command]
 fn set_anttp_port(port: u16) -> Result<(), String> {
-    if port == 0 {
-        return Err("Port must be > 0".into());
-    }
-    *ANTTP_PORT.lock().unwrap() = port;
-    Ok(())
+    set_port(&ANTTP_PORT, port)
 }
 
 #[tauri::command]
 fn set_dweb_port(port: u16) -> Result<(), String> {
-    if port == 0 {
-        return Err("Port must be > 0".into());
-    }
-    *DWEB_PORT.lock().unwrap() = port;
-    Ok(())
+    set_port(&DWEB_PORT, port)
 }
 
 #[tauri::command]
@@ -369,21 +365,19 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
     Ok("ant, anttp and dweb started".into())
 }
 
+macro_rules! kill_child {
+    ($lock:expr) => {
+        if let Some(mut child) = $lock.lock().unwrap().take() {
+            let _ = child.kill();
+        }
+    };
+}
+
 #[tauri::command]
 fn stop_server() -> Result<String, String> {
-    let mut ant_lock = ANT_PROCESS.lock().unwrap();
-    let mut anttp_lock = ANTPP_PROCESS.lock().unwrap();
-    let mut dweb_lock = DWEB_PROCESS.lock().unwrap();
-
-    if let Some(mut ant_child) = ant_lock.take() {
-        let _ = ant_child.kill();
-    }
-    if let Some(mut anttp_child) = anttp_lock.take() {
-        let _ = anttp_child.kill();
-    }
-    if let Some(mut dweb_child) = dweb_lock.take() {
-        let _ = dweb_child.kill();
-    }
+    kill_child!(ANT_PROCESS);
+    kill_child!(ANTPP_PROCESS);
+    kill_child!(DWEB_PROCESS);
 
     Ok("ant, anttp and dweb stopped".into())
 }
@@ -393,6 +387,8 @@ fn cleanup_processes() {
     let mut anttp_lock = ANTPP_PROCESS.lock().unwrap();
     let mut dweb_lock = DWEB_PROCESS.lock().unwrap();
 
+    tauri::async_runtime::block_on(stop_websocket_server()).ok();
+
     if let Some(mut ant_child) = ant_lock.take() {
         let _ = ant_child.kill();
     }
@@ -401,6 +397,35 @@ fn cleanup_processes() {
     }
     if let Some(mut dweb_child) = dweb_lock.take() {
         let _ = dweb_child.kill();
+    }
+}
+
+#[tauri::command]
+fn get_binary_version(binaryName: String) -> Result<String, String> {
+    use std::{path::PathBuf, process::Command};
+
+    // Figures out the correct filename based on OS
+    let target_triple = if cfg!(target_os = "macos") {
+        format!("{}-apple-darwin", std::env::consts::ARCH)
+    } else if cfg!(target_os = "windows") {
+        format!("{}-pc-windows-msvc.exe", std::env::consts::ARCH)
+    } else {
+        format!("{}-unknown-linux-gnu", std::env::consts::ARCH)
+    };
+
+    let filename = format!("{}-{}", binaryName, target_triple);
+    let mut path = PathBuf::from("bin");
+    path.push(filename);
+
+    let output = Command::new(&path)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("Failed to start process {}: {}", path.display(), e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
     }
 }
 
@@ -423,6 +448,7 @@ pub fn run() {
             set_websocket_port,
             kill_process_on_port,
             is_server_running,
+            get_binary_version,
         ])
         .setup(|app| {
             let handle = app.handle();

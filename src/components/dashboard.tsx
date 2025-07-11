@@ -26,6 +26,17 @@ export default function Dashboard() {
         }
     };
 
+    const showVersion = async (binary: string) => {
+        try {
+            const version = await invoke<string>("get_binary_version", {
+                binaryName: binary,
+            });
+            toast.success(`${binary} version: ${version}`);
+        } catch (e: any) {
+            toast.error(`Failed to get version for ${binary}: ${e}`);
+        }
+    };
+
     const refreshPorts = async () => {
         try {
             const [ant, anttp, dweb, websocket] = await invoke<
@@ -243,10 +254,6 @@ export default function Dashboard() {
         }
     };
 
-    const testMetamaskTXSigning = async () => {
-        console.log("test");
-    };
-
     return (
         <div className="p-4 space-y-2">
             <div className="flex flex-row gap-2 items-center">
@@ -266,9 +273,18 @@ export default function Dashboard() {
                     min={1}
                     max={65535}
                 />
-                <Button onClick={updateAntPort} disabled={isClientRunning}>
+                <Button
+                    className="min-w-[12rem]"
+                    onClick={updateAntPort}
+                    disabled={isClientRunning}
+                >
                     Set Ant port
                 </Button>
+                {isClientRunning && (
+                    <Button onClick={() => showVersion("ant")}>
+                        Show Version
+                    </Button>
+                )}
             </div>
 
             {/* anttp port */}
@@ -282,9 +298,18 @@ export default function Dashboard() {
                     min={1}
                     max={65535}
                 />
-                <Button onClick={updateAnttpPort} disabled={isClientRunning}>
+                <Button
+                    className="min-w-[12rem]"
+                    onClick={updateAnttpPort}
+                    disabled={isClientRunning}
+                >
                     Set AntTP port
                 </Button>
+                {isClientRunning && (
+                    <Button onClick={() => showVersion("anttp")}>
+                        Show Version
+                    </Button>
+                )}
             </div>
 
             {/* dweb port */}
@@ -298,9 +323,18 @@ export default function Dashboard() {
                     min={1}
                     max={65535}
                 />
-                <Button onClick={updateDwebPort} disabled={isClientRunning}>
+                <Button
+                    className="min-w-[12rem]"
+                    onClick={updateDwebPort}
+                    disabled={isClientRunning}
+                >
                     Set DWeb port
                 </Button>
+                {isClientRunning && (
+                    <Button onClick={() => showVersion("dweb")}>
+                        Show Version
+                    </Button>
+                )}
             </div>
 
             {/* websocket port */}
@@ -315,6 +349,7 @@ export default function Dashboard() {
                     max={65535}
                 />
                 <Button
+                    className="min-w-[12rem]"
                     onClick={updateWebsocketPort}
                     disabled={isClientRunning}
                 >
