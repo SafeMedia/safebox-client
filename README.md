@@ -1,73 +1,104 @@
 # SafeBox Client
 
-![SafeBox Client](https://github.com/SafeMedia/images/blob/main/impossible_futures/safebox/safebox-client.png)
+<img width="1100" height="602" alt="local-client" src="https://github.com/user-attachments/assets/7928f719-f8d8-486f-9afe-2a55369cb978" />
+
 
 ## Getting Started
 
-### Developers
+📚 Instructions on how to use the application can be found at: [Documentation](https://safemedia.com)
 
--   System libraries and Rust: https://v2.tauri.app/start/prerequisites/
 
--   Download Rust dependencies.
+Visit the latest releases page:  
+👉 [releases](https://github.com/SafeMedia/safebox-client/releases)
 
-### Frontend
+---
 
-1. Node.js and yarn/npm
+## Windows
 
-1. **Install Node modules**:  
-   Run the following command in your terminal:
+Download either the `.exe` or `.msi` file.
 
-    ```bash
-    yarn install
+When downloaded, double click it & enjoy.
 
-    ```
+---
 
-1. **Build Tauri App**:  
-   Run the following command in your terminal:
+## macOS
 
-    ```bash
-    yarn run tauri build
+Until the application is added to the App Store, you can directly download the `.dmg` file.
 
-    ```
+Download the `.dmg` file.
 
-1. **Run Tauri App**:  
-   Run the following command in your terminal:
-    ```bash
-    yarn run tauri dev
-    ```
-
-Side-note: If you wish to run the development web server (if you for some reason don't want to run it via tauri):
+Navigate to the directory containing the `.dmg` file using the `cd` command:
 
 ```bash
-yarn run dev
+cd ~/Downloads
+```
 
+Then run this command from a terminal in the same folder as the .dmg file (be sure to update version number in command if newer version is released):
+
+```bash
+xattr -d com.apple.quarantine ./ SafeBoxClient_0.1.2_aarch64.dmg 
+```
+
+---
+
+## Linux
+
+Download the `.deb` file.
+
+Navigate to the directory containing the `.deb` file using the `cd` command:
+
+```bash
+cd ~/Downloads
+```
+
+Then run this command from a terminal in the same folder as the .deb file (be sure to update version number in command if newer version is released):
+
+```bash
+sudo apt install ./SafeBoxClient_0.1.2_amd64.deb 
+```
+
+---
+
+## Developers
+
+If you want to build the application locally for development purposes, follow the steps below:
+
+### Prerequisites
+
+System libraries and Rust:
+
+[Tauri_v2]([https://safemedia.com](https://v2.tauri.app/start/prerequisites/))
+
+Node.js with yarn or npm
+
+### Install Node Modules
+
+```bash
+yarn install
+```
+
+### Build Tauri App
+
+```bash
+yarn run tauri build
+```
+
+### Run Tauri App
+
+```bash
+yarn run tauri dev
 ```
 
 ### Icon Generation
 
-To re-generate the icons for the project you can run:
+To re-generate the icons for the project, run:
 
-```
+```bash
 cargo tauri icon public/icon-gen.png
 ```
 
-### WARNING
+---
 
-SafeBox client is in active development, please only use testnet funds, or if using mainnet, small amounts!
-
-### Testnet
-
--   If you want to connect to local testnet:
-
-Edit `await invoke("connect", [...]` line in `connect()` function in `src/backend/autonomi.tsx` file, and replace `peer` value with one of your local nodes' Multiaddress, which can be found in node logs. You can see where logs are stored when starting local network, the startup process will output something like "Logging to directory: [...]". In the logfile you search for the line looking like this: `Local node is listening ListenerId(1) on "/ip4/127.0.0.1/udp/11111/quic-v1/p2p/AaaAaa11AaaAaa11AaaAaa11AaaAaa11AaaAaa11AaaAaa11AaaA"`. Address can also be checked running this command:
-
-`cargo run --release --bin safenode-manager --features local -- local status --details`
-
--   (alternatively) Connecting to official testnet:
-
-Same as above, but instead local node's Multiaddr in `peer`, just insert something that is not Multiaddr, or leave it empty.
-
-
-### Contribute
+## Contribute
 
 Make/find an issue & create a PR - All contributions appreciated!
