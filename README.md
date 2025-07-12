@@ -7,7 +7,6 @@
 
 📚 Instructions on how to use the application can be found at: [Documentation](https://safemedia.com)
 
-
 Visit the latest releases page:  
 👉 [releases](https://github.com/SafeMedia/safebox-client/releases)
 
