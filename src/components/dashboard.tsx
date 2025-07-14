@@ -12,8 +12,8 @@ export default function Dashboard() {
     const accountRef = useRef<AccountUser | null>(null);
     const [isClientRunning, setIsClientRunning] = useState(false);
     const [antPort, setAntPort] = useState<number>(8081);
-    const [anttpPort, setAnttpPort] = useState<number>(8082);
-    const [dwebPort, setDwebPort] = useState<number>(8083);
+    const [anttpPort, setAnttpPort] = useState<number>(18888);
+    const [dwebPort, setDwebPort] = useState<number>(5537);
     const [websocketPort, setWebsocketPort] = useState<number>(8084);
     const [portToKill, setPortToKill] = useState<number>(0);
 

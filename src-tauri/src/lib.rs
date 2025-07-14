@@ -23,8 +23,8 @@ mod types;
 mod websockets;
 
 pub static ANT_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8081));
-pub static ANTTP_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8082));
-pub static DWEB_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8083));
+pub static ANTTP_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(18888));
+pub static DWEB_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(5537));
 pub static WEBSOCKET_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(8084));
 
 static ANT_PROCESS: Lazy<Mutex<Option<CommandChild>>> = Lazy::new(|| Mutex::new(None));
