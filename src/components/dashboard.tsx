@@ -73,7 +73,7 @@ export default function Dashboard() {
             "upload-file",
             async (event) => {
                 toast(`Upload request detected`);
-                const { name, success, error, xorname } = event.payload;
+                const { name, success, error } = event.payload;
                 if (success) {
                     toast(`File '${name}' Uploaded`);
                 } else if (error) {
