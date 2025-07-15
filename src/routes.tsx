@@ -4,6 +4,7 @@ import Settings from "./pages/settings";
 import StorageSettings from "./components/settings/storage-settings";
 import NotificationSettings from "./components/settings/notification-settings";
 import PreferenceSettings from "./components/settings/preference-settings";
+import WalletSettings from "./components/settings/wallet-settings";
 
 const AppRoutes = () => {
     return (
@@ -17,6 +18,7 @@ const AppRoutes = () => {
                     element={<NotificationSettings />}
                 />
                 <Route path="preference" element={<PreferenceSettings />} />
+                <Route path="wallet" element={<WalletSettings />} />
             </Route>
         </Routes>
     );

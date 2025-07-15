@@ -17,6 +17,7 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({
             const storeInstance = await load("store.bin", {
                 autoSave: true,
             });
+
             setStore(storeInstance);
             sharedStore = storeInstance; // assign to the shared variable
         } catch (error) {

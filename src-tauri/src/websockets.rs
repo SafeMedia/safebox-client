@@ -1,42 +1,37 @@
 use crate::do_upload;
-use crate::types::{ToastEvent, UploadError, UploadFileEvent, UploadFilePayload};
-use crate::ANTTP_PORT;
-use crate::DWEB_PORT;
+use crate::types::{
+    Chunk, DownloadRequest, ToastEvent, UploadError, UploadFileEvent, UploadFilePayload,
+};
+use crate::{ANTTP_PORT, DWEB_PORT, WEBSOCKET_PORT};
+use base64::decode;
 use dirs::data_dir;
 use futures::{stream::StreamExt, SinkExt};
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
-use tauri::async_runtime::JoinHandle as TauriJoinHandle;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tokio::sync::watch;
-use tokio::sync::Mutex;
+use tokio::sync::{watch, Mutex};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
-use crate::WEBSOCKET_PORT;
-
 pub static WEBSOCKET_SHUTDOWN_TX: Lazy<Mutex<Option<watch::Sender<bool>>>> =
     Lazy::new(|| Mutex::new(None));
-pub static WEBSOCKET_TASK_HANDLE: Lazy<Mutex<Option<TauriJoinHandle<()>>>> =
+pub static WEBSOCKET_TASK_HANDLE: Lazy<Mutex<Option<tauri::async_runtime::JoinHandle<()>>>> =
     Lazy::new(|| Mutex::new(None));
 
 pub async fn stop_websocket_server() -> Result<(), String> {
-    // Signal shutdown
     {
         let mut shutdown_lock = WEBSOCKET_SHUTDOWN_TX.lock().await;
         if let Some(shutdown_tx) = shutdown_lock.take() {
-            let _ = shutdown_tx.send(true); // ignore error if no receiver
+            let _ = shutdown_tx.send(true);
         }
     }
 
-    // Abort and await task
     {
         let mut handle_lock = WEBSOCKET_TASK_HANDLE.lock().await;
         if let Some(handle) = handle_lock.take() {
@@ -57,21 +52,15 @@ async fn handle_root_ws(ws: WebSocket) {
         .await;
 
     while let Some(Ok(_msg)) = rx.next().await {
-        // ignore
+        // Ignore all messages on root WS
     }
 }
 
-pub async fn start_websocket_server(
-    handle: tauri::AppHandle,
-    mut shutdown_rx: watch::Receiver<bool>,
-) {
+pub async fn start_websocket_server(handle: AppHandle, mut shutdown_rx: watch::Receiver<bool>) {
     let port = *WEBSOCKET_PORT.lock().unwrap();
 
     let upload_handle = handle.clone();
-
-    // not currently used as we directly use anttp/dweb
-    let download_handle_for_ws = handle.clone();
-
+    let download_handle = handle.clone();
     let chunk_store: FileChunks = Arc::new(Mutex::new(HashMap::new()));
 
     let upload_ws = warp::path("upload-ws")
@@ -82,10 +71,9 @@ pub async fn start_websocket_server(
             ws.on_upgrade(move |socket| handle_upload_ws(socket, store, handle))
         });
 
-    // not currently used as we directly use anttp/dweb
     let download_ws = warp::path("download-ws")
         .and(warp::ws())
-        .and(with_handle(download_handle_for_ws))
+        .and(with_handle(download_handle))
         .map(|ws: warp::ws::Ws, handle| {
             ws.on_upgrade(move |socket| handle_download_ws(socket, handle))
         });
@@ -103,10 +91,9 @@ pub async fn start_websocket_server(
     let addr = ([127, 0, 0, 1], port);
 
     let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(addr, async move {
-        // wait until shutdown_rx changes to true
         while !*shutdown_rx.borrow() {
             if shutdown_rx.changed().await.is_err() {
-                break; // channel closed
+                break;
             }
         }
     });
@@ -142,44 +129,58 @@ fn with_state(
 
 type FileChunks = Arc<Mutex<HashMap<String, Vec<Option<Vec<u8>>>>>>;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-struct Chunk {
-    name: String,
-    mime_type: String,
-    chunk_index: usize,
-    total_chunks: usize,
-    data: Vec<u8>,
-}
-
-#[derive(Debug, Deserialize)]
-struct DownloadRequest {
-    action: String,
-    xorname: String,
-}
-
 async fn handle_upload_ws(ws: WebSocket, store: FileChunks, handle: AppHandle) {
     let (mut tx, mut rx) = ws.split();
+
+    println!("[WS] Upload WebSocket connection established");
 
     while let Some(Ok(msg)) = rx.next().await {
         if msg.is_text() {
             match serde_json::from_str::<Chunk>(msg.to_str().unwrap()) {
                 Ok(chunk) => {
-                    const MAX_CHUNKS: usize = 100_000;
+                    let decoded_data = match decode(&chunk.data) {
+                        Ok(d) => d,
+                        Err(e) => {
+                            eprintln!("Base64 decode failed: {}", e);
+                            let error_msg = json!({
+                                "action": "uploadError",
+                                "upload_id": chunk.metadata.upload_id,
+                                "error": format!("Base64 decode failed: {}", e),
+                            });
+                            let _ = tx.send(Message::text(error_msg.to_string())).await;
+                            continue;
+                        }
+                    };
 
-                    let key = chunk.name.clone();
-                    let chunk_size = std::mem::size_of::<Option<Vec<u8>>>();
-                    let total_chunks = chunk.total_chunks;
+                    const MAX_CHUNKS: usize = 100_000;
+                    let key = chunk.metadata.upload_id.clone();
+                    let total_chunks = chunk.metadata.total_chunks;
 
                     if total_chunks == 0 || total_chunks > MAX_CHUNKS {
-                        eprintln!("Invalid total_chunks value: {}", total_chunks);
+                        eprintln!("Invalid total_chunks: {}", total_chunks);
+                        let error_msg = json!({
+                            "action": "uploadError",
+                            "upload_id": chunk.metadata.upload_id,
+                            "error": format!("Invalid total_chunks: {}", total_chunks),
+                        });
+                        let _ = tx.send(Message::text(error_msg.to_string())).await;
                         continue;
                     }
 
-                    if chunk.chunk_index >= total_chunks {
+                    if chunk.metadata.chunk_index >= total_chunks {
                         eprintln!(
                             "Invalid chunk_index {} for total_chunks {}",
-                            chunk.chunk_index, total_chunks
+                            chunk.metadata.chunk_index, total_chunks
                         );
+                        let error_msg = json!({
+                            "action": "uploadError",
+                            "upload_id": chunk.metadata.upload_id,
+                            "error": format!(
+                                "Invalid chunk_index {} for total_chunks {}",
+                                chunk.metadata.chunk_index, total_chunks
+                            ),
+                        });
+                        let _ = tx.send(Message::text(error_msg.to_string())).await;
                         continue;
                     }
 
@@ -194,19 +195,19 @@ async fn handle_upload_ws(ws: WebSocket, store: FileChunks, handle: AppHandle) {
                         vec
                     });
 
-                    entry[chunk.chunk_index] = Some(chunk.data.clone());
+                    entry[chunk.metadata.chunk_index] = Some(decoded_data);
+
+                    let ack = json!({
+                        "type": "chunk_received",
+                        "upload_id": chunk.metadata.upload_id,
+                        "chunk_index": chunk.metadata.chunk_index
+                    });
+
+                    if let Err(e) = tx.send(Message::text(ack.to_string())).await {
+                        eprintln!("Failed to send chunk ack: {}", e);
+                    }
 
                     if entry.iter().all(|c| c.is_some()) {
-                        handle
-                            .emit(
-                                "show-toast",
-                                ToastEvent {
-                                    title: "Received Upload Request".to_string(),
-                                    description: "Starting file upload process now".to_string(),
-                                },
-                            )
-                            .unwrap();
-
                         let mut full_data = Vec::new();
                         for part in entry.iter().flatten() {
                             full_data.extend_from_slice(part);
@@ -215,46 +216,53 @@ async fn handle_upload_ws(ws: WebSocket, store: FileChunks, handle: AppHandle) {
                         let output_path = data_dir()
                             .expect("Cannot find data dir")
                             .join("safebox")
-                            .join(&chunk.name);
+                            .join(&chunk.metadata.filename);
 
                         tokio::fs::create_dir_all(output_path.parent().unwrap())
                             .await
                             .unwrap();
-                        let mut file = File::create(output_path.clone()).await.unwrap();
+
+                        let mut file = File::create(&output_path).await.unwrap();
                         file.write_all(&full_data).await.unwrap();
 
                         let file_data = tokio::fs::read(&output_path).await.unwrap();
 
                         let payload = UploadFilePayload {
-                            name: chunk.name.clone(),
-                            mime_type: chunk.mime_type.clone(),
+                            name: chunk.metadata.filename.clone(),
+                            mime_type: chunk.metadata.mime_type.clone(),
                             data: file_data,
                         };
 
-                        match do_upload(payload, &handle).await {
-                            Ok(success_message) => {
+                        let response = match do_upload(payload, &handle).await {
+                            Ok(xorname) => {
                                 handle
                                     .emit(
                                         "upload-file",
                                         UploadFileEvent {
-                                            name: chunk.name.clone(),
-                                            mime_type: chunk.mime_type.clone(),
-                                            xorname: Some(success_message),
+                                            name: chunk.metadata.filename.clone(),
+                                            mime_type: chunk.metadata.mime_type.clone(),
+                                            xorname: Some(xorname.clone()),
                                             success: true,
                                             error: None,
                                         },
                                     )
                                     .unwrap();
+
+                                json!({
+                                    "type": "upload_complete",
+                                    "upload_id": chunk.metadata.upload_id,
+                                    "xorname": xorname
+                                })
                             }
                             Err(error) => {
                                 handle
                                     .emit(
                                         "upload-file",
                                         UploadFileEvent {
-                                            name: chunk.name.clone(),
-                                            mime_type: chunk.mime_type.clone(),
-                                            success: false,
+                                            name: chunk.metadata.filename.clone(),
+                                            mime_type: chunk.metadata.mime_type.clone(),
                                             xorname: None,
+                                            success: false,
                                             error: Some(UploadError {
                                                 title: "Upload Failed".into(),
                                                 description: format!("{:?}", error),
@@ -262,96 +270,49 @@ async fn handle_upload_ws(ws: WebSocket, store: FileChunks, handle: AppHandle) {
                                         },
                                     )
                                     .unwrap();
+
+                                json!({
+                                    "action": "uploadError",
+                                    "upload_id": chunk.metadata.upload_id,
+                                    "error": format!("{:?}", error)
+                                })
                             }
+                        };
+
+                        if let Err(e) = tx.send(Message::text(response.to_string())).await {
+                            eprintln!("Failed to send response to extension: {}", e);
                         }
 
                         store_guard.remove(&key);
                     }
                 }
                 Err(e) => {
-                    eprintln!("Invalid chunk data: {}", e);
+                    eprintln!("Failed to deserialize chunk JSON: {}", e);
                 }
             }
         }
     }
 }
 
-// not currently used as we directly use anttp/dweb
 async fn handle_download_ws(ws: WebSocket, handle: AppHandle) {
     let (mut tx, mut rx) = ws.split();
 
     if let Some(Ok(msg)) = rx.next().await {
         if msg.is_text() {
             match serde_json::from_str::<DownloadRequest>(msg.to_str().unwrap()) {
-                Ok(req) if req.action == "download" 
-               // && is_valid_xorname(&req.xorname) 
-                => {
-                    // Immediately emit the success toast
+                Ok(req) if req.action == "download" => {
                     handle
                         .emit(
                             "show-toast",
                             ToastEvent {
-                                title: "Success".to_string(),
-                                description: "Download request sent to client".to_string(),
+                                title: "Success".into(),
+                                description: "Download request sent to client".into(),
                             },
                         )
                         .unwrap();
-
-                    // Proceed with the file download as before
-                    // match crate::download(
-                    //     req.xorname.clone(),
-                    //     Some("file_name.png".to_string()), // You can set the filename as needed
-                    //     "downloads".to_string(),
-                    //     handle,
-                    // )
-                    // .await
-                    // {
-                    //     Ok(Some(file_data)) => {
-                    //         // Split the file into chunks (e.g., 1MB chunks)
-                    //         const CHUNK_SIZE: usize = 1024 * 1024; // 1MB chunks
-                    //         let mut chunk_index = 0;
-                    //         let total_chunks = (file_data.len() + CHUNK_SIZE - 1) / CHUNK_SIZE; // Round up
-
-                    //         while chunk_index < total_chunks {
-                    //             let start = chunk_index * CHUNK_SIZE;
-                    //             let end =
-                    //                 std::cmp::min((chunk_index + 1) * CHUNK_SIZE, file_data.len());
-                    //             let chunk_data = file_data[start..end].to_vec();
-
-                    //             // Send the chunk over WebSocket
-                    //             let chunk = json!({
-                    //                 "chunk_index": chunk_index,
-                    //                 "total_chunks": total_chunks,
-                    //                 "data": chunk_data,
-                    //             });
-
-                    //             if tx.send(Message::text(chunk.to_string())).await.is_err() {
-                    //                 break;
-                    //             }
-
-                    //             chunk_index += 1;
-                    //         }
-
-                    //         // Send a "done" message when all chunks are sent
-                    //         let done_msg = json!({ "done": true }).to_string();
-                    //         let _ = tx.send(Message::text(done_msg)).await;
-                    //     }
-                    //     Ok(None) => {
-                    //         // File not found or failed to download
-                    //         let error_response =
-                    //             json!({ "error": "File not found or failed to download" });
-                    //         let _ = tx.send(Message::text(error_response.to_string())).await;
-                    //     }
-                    //     Err(e) => {
-                    //         // Download error
-                    //         let error_response =
-                    //             json!({ "error": format!("Download failed: {}", e) });
-                    //         let _ = tx.send(Message::text(error_response.to_string())).await;
-                    //     }
-                    // }
+                    // Implement actual download logic as needed
                 }
                 _ => {
-                    // Invalid action or xorname
                     let error_response = json!({ "error": "Invalid request format or xorname" });
                     let _ = tx.send(Message::text(error_response.to_string())).await;
                 }

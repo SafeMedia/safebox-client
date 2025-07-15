@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { download } from "@/backend/logic";
 import { UploadPayload } from "@/types/upload-file-event";
-import { AccountUser } from "@/types/account-user";
 import { ToastPayload } from "@/types/payloads";
 import { Button } from "./ui/button";
 
 export default function Dashboard() {
-    const accountRef = useRef<AccountUser | null>(null);
     const [isClientRunning, setIsClientRunning] = useState(false);
     const [antPort, setAntPort] = useState<number>(8081);
     const [anttpPort, setAnttpPort] = useState<number>(18888);
@@ -74,24 +72,17 @@ export default function Dashboard() {
         const unlistenUpload = listen<UploadPayload>(
             "upload-file",
             async (event) => {
-                if (!accountRef.current) {
-                    toast(
-                        "Not Signed In" +
-                            ": " +
-                            `Upload requested but you are not signed in`
-                    );
-
-                    return;
-                }
+                toast(`Upload request detected`);
                 const { name, success, error, xorname } = event.payload;
                 if (success) {
-                    toast(`File '${name}' Uploaded` + ": " + xorname);
+                    toast(`File '${name}' Uploaded`);
                 } else if (error) {
                     toast(
                         "Upload Failed" +
                             ": " +
-                            "Something went wrong during upload."
+                            "Something went wrong during upload"
                     );
+                    console.log(error.description);
                 } else {
                     toast(
                         "Unknown Upload Status" +

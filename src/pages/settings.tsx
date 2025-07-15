@@ -22,6 +22,11 @@ export default function Settings() {
             href: "/settings/preference",
             current: false,
         },
+        {
+            name: "Wallet",
+            href: "/settings/wallet",
+            current: false,
+        },
     ];
 
     // initialize pages with default settings page

@@ -1,4 +1,3 @@
-use crate::types::ToastEvent;
 use crate::types::UploadFilePayload;
 use crate::websockets::start_websocket_server;
 use crate::websockets::stop_websocket_server;
@@ -8,7 +7,7 @@ use once_cell::sync::Lazy;
 use std::env;
 use std::io::Write;
 use std::net::TcpListener;
-use std::process::Stdio;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::WindowEvent;
@@ -16,8 +15,8 @@ use tauri::{AppHandle, Window};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_store::StoreBuilder;
 use tempfile::NamedTempFile;
-use tokio::process::Command;
 
 mod types;
 mod websockets;
@@ -185,24 +184,131 @@ fn kill_process_on_port(port: u16) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn do_upload(payload: UploadFilePayload, _handle: &AppHandle) -> Result<String, String> {
-    // write data to a temp file
-    let mut temp_file = NamedTempFile::new().map_err(|e| e.to_string())?;
+fn get_app_store_path() -> Result<PathBuf, String> {
+    // get the OS-specific user data directory (e.g. on Windows: C:\Users\<User>\AppData\Roaming)
+    let mut app_dir = dirs::data_dir().ok_or("Could not find data directory")?;
+
+    // append your app folder name to it (e.g., "SafeBoxClient")
+    app_dir.push("client.safebox.desktop");
+
+    // create the directory if it doesn't exist yet (optional)
+    std::fs::create_dir_all(&app_dir).map_err(|e| format!("Failed to create app dir: {}", e))?;
+
+    // append your store file name
+    app_dir.push("store.bin");
+
+    Ok(app_dir)
+}
+
+#[tauri::command]
+async fn import_wallet(app_handle: tauri::AppHandle) -> Result<(), String> {
+    println!("Import wallet started");
+
+    // use your get_app_store_path function to get the store path
+    let store_path = get_app_store_path()?;
+
+    // initialize the store
+    let wallet_store = match StoreBuilder::new(&app_handle, store_path.clone()).build() {
+        Ok(store) => store,
+        Err(e) => {
+            println!("Warning: Failed to build store (continuing without wallet): {e}");
+            return Ok(()); // continue without wallet
+        }
+    };
+
+    // get the wallet key and password entries (they are expected to be JSON objects with a "value" string)
+    let key_entry = wallet_store.get("wallet-private-key");
+
+    let pwd_entry = wallet_store.get("wallet-password");
+
+    if let Some(serde_json::Value::Object(key_map)) = key_entry {
+        if let Some(serde_json::Value::String(private_key)) = key_map.get("value") {
+            if !private_key.trim().is_empty() {
+                let import_cmd = app_handle
+                    .shell()
+                    .sidecar("ant")
+                    .map_err(|e| format!("Failed to create ant sidecar: {}", e))?;
+
+                // build args as owned Strings
+                let mut args: Vec<String> = vec![
+                    "wallet".to_string(),
+                    "import".to_string(),
+                    private_key.clone(),
+                    "--no-password".to_string(),
+                ];
+
+                if let Some(serde_json::Value::Object(pwd_map)) = pwd_entry {
+                    if let Some(serde_json::Value::String(password)) = pwd_map.get("value") {
+                        if !password.trim().is_empty() {
+                            args = vec![
+                                "wallet".to_string(),
+                                "import".to_string(),
+                                private_key.clone(),
+                                "--password".to_string(),
+                                password.clone(),
+                            ];
+                        }
+                    }
+                }
+
+                // convert owned Strings to &str slices for passing to args()
+                let args_ref: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+                match import_cmd.args(args_ref).output().await {
+                    Ok(output) => {
+                        if !output.status.success() {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            println!(
+                                "Warning: Wallet import failed (continuing without wallet): {stderr}"
+                            );
+                        } else {
+                            println!("Wallet imported successfully.");
+                        }
+                    }
+                    Err(e) => {
+                        println!("Warning: Failed to import wallet: {e}");
+                    }
+                }
+            } else {
+                println!("Warning: Private key is empty (skipping wallet import)");
+            }
+        } else {
+            println!("Warning: 'value' field is missing or not a string in wallet-private-key");
+        }
+    } else {
+        println!("No private key in store (wallet not imported)");
+    }
+
+    Ok(())
+}
+
+pub async fn do_upload(payload: UploadFilePayload, handle: &AppHandle) -> Result<String, String> {
+    // create a temporary file synchronously
+    let mut temp_file =
+        NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {}", e))?;
+
+    // write data to temp file synchronously because NamedTempFile uses std::fs::File
     temp_file
         .write_all(&payload.data)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to write to temp file: {}", e))?;
+
     let file_path = temp_file.path();
 
-    // call the ant binary
-    let output = Command::new("ant")
-        .arg("upload")
-        .arg("--file")
-        .arg(file_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+    // launch ant sidecar command
+    let ant_cmd = handle
+        .shell()
+        .sidecar("ant")
+        .map_err(|e| format!("Failed to create ant sidecar: {}", e))?;
+
+    let output = ant_cmd
+        .args([
+            "file",
+            "upload",
+            file_path.to_str().ok_or("Invalid file path")?,
+        ])
         .output()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to execute ant: {}", e))?;
 
     if output.status.success() {
         let xorname = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -269,7 +375,7 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
         .sidecar("ant")
         .map_err(|e| format!("Failed to create ant sidecar: {}", e))?;
 
-    let (mut ant_rx, mut ant_child) = match ant_cmd
+    let (mut ant_rx, ant_child) = match ant_cmd
         .args(["-l", &format!("127.0.0.1:{}", ant_port)])
         .spawn()
     {
@@ -302,7 +408,7 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
         .sidecar("anttp")
         .map_err(|e| format!("Failed to create anttp sidecar: {}", e))?;
 
-    let (mut anttp_rx, mut anttp_child) = match anttp_cmd
+    let (mut anttp_rx, anttp_child) = match anttp_cmd
         .args(["-l", &format!("127.0.0.1:{}", anttp_port)])
         .spawn()
     {
@@ -335,7 +441,7 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
         .sidecar("dweb")
         .map_err(|e| format!("Failed to create dweb sidecar: {}", e))?;
 
-    let (mut dweb_rx, mut dweb_child) = match dweb_cmd
+    let (mut dweb_rx, dweb_child) = match dweb_cmd
         .args(["serve", "--port", &dweb_port.to_string()])
         .spawn()
     {
@@ -367,7 +473,7 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
 
 macro_rules! kill_child {
     ($lock:expr) => {
-        if let Some(mut child) = $lock.lock().unwrap().take() {
+        if let Some(child) = $lock.lock().unwrap().take() {
             let _ = child.kill();
         }
     };
@@ -389,22 +495,22 @@ fn cleanup_processes() {
 
     tauri::async_runtime::block_on(stop_websocket_server()).ok();
 
-    if let Some(mut ant_child) = ant_lock.take() {
+    if let Some(ant_child) = ant_lock.take() {
         let _ = ant_child.kill();
     }
-    if let Some(mut anttp_child) = anttp_lock.take() {
+    if let Some(anttp_child) = anttp_lock.take() {
         let _ = anttp_child.kill();
     }
-    if let Some(mut dweb_child) = dweb_lock.take() {
+    if let Some(dweb_child) = dweb_lock.take() {
         let _ = dweb_child.kill();
     }
 }
 
 #[tauri::command]
-fn get_binary_version(binaryName: String) -> Result<String, String> {
+fn get_binary_version(binary_name: String) -> Result<String, String> {
     use std::{path::PathBuf, process::Command};
 
-    // Figures out the correct filename based on OS
+    // figures out the correct filename based on OS
     let target_triple = if cfg!(target_os = "macos") {
         format!("{}-apple-darwin", std::env::consts::ARCH)
     } else if cfg!(target_os = "windows") {
@@ -413,7 +519,7 @@ fn get_binary_version(binaryName: String) -> Result<String, String> {
         format!("{}-unknown-linux-gnu", std::env::consts::ARCH)
     };
 
-    let filename = format!("{}-{}", binaryName, target_triple);
+    let filename = format!("{}-{}", binary_name, target_triple);
     let mut path = PathBuf::from("bin");
     path.push(filename);
 
@@ -449,6 +555,7 @@ pub fn run() {
             kill_process_on_port,
             is_server_running,
             get_binary_version,
+            import_wallet,
         ])
         .setup(|app| {
             let handle = app.handle();

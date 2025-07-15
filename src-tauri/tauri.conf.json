@@ -39,7 +39,7 @@
             "icons/icon.ico"
         ],
         "resources": ["bin/**/*"],
-        "externalBin": ["bin/anttp", "bin/dweb", "bin/ant"]
+        "externalBin": ["bin/anttp", "bin/ant", "bin/dweb"]
     },
     "plugins": {
         "clipboard": {
