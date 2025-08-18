@@ -34,7 +34,7 @@ cd ~/Downloads
 Then run this command from a terminal in the same folder as the .dmg file (be sure to update version number in command if newer version is released):
 
 ```bash
-xattr -d com.apple.quarantine ./ SafeBoxClient_0.1.3_aarch64.dmg
+xattr -d com.apple.quarantine ./SafeBoxClient_0.1.6_aarch64.dmg
 ```
 
 ---
