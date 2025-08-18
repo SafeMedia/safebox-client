@@ -1,6 +1,6 @@
 [package]
 name = "SafeBoxClient"
-version = "0.1.6"
+version = "0.1.7"
 description = "SafeBox Client"
 authors = ["cobite"]
 license = "UNLICENSED"
