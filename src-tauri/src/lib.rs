@@ -8,6 +8,7 @@ use std::env;
 use std::io::Write;
 use std::net::TcpListener;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Mutex;
 use tauri::Emitter;
 use tauri::WindowEvent;
@@ -342,53 +343,41 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
         return Err("Services already running".into());
     }
 
-    // check if ant port is in use
+    // check ports before starting
     if is_port_in_use(ant_port) {
         let _ = window.dialog().message(format!(
-            "Port {} is already in use by another process. Cannot start 'ant'.",
+            "Port {} is already in use. Cannot start 'ant'.",
             ant_port
         ));
         return Err(format!("Port {} in use", ant_port));
     }
 
-    // check if anttp port is in use
     if is_port_in_use(anttp_port) {
         let _ = window.dialog().message(format!(
-            "Port {} is already in use by another process. Cannot start 'anttp'.",
+            "Port {} is already in use. Cannot start 'anttp'.",
             anttp_port
         ));
         return Err(format!("Port {} in use", anttp_port));
     }
 
-    // check if dweb port is in use
     if is_port_in_use(dweb_port) {
         let _ = window.dialog().message(format!(
-            "Port {} is already in use by another process. Cannot start 'dweb'.",
+            "Port {} is already in use. Cannot start 'dweb'.",
             dweb_port
         ));
         return Err(format!("Port {} in use", dweb_port));
     }
 
-    // start ant
+    // --- Start ant ---
     let ant_cmd = app
         .shell()
         .sidecar("ant")
         .map_err(|e| format!("Failed to create ant sidecar: {}", e))?;
 
-    let (mut ant_rx, ant_child) = match ant_cmd
+    let (mut ant_rx, ant_child) = ant_cmd
         .args(["-l", &format!("127.0.0.1:{}", ant_port)])
         .spawn()
-    {
-        Ok(child) => child,
-        Err(e) => {
-            let err_str = e.to_string();
-            if err_str.contains("Permission denied") || err_str.contains("operation not permitted")
-            {
-                handle_permission_error(&window, "ant");
-            }
-            return Err(format!("Failed to spawn ant: {}", err_str));
-        }
-    };
+        .map_err(|e| format!("Failed to spawn ant: {}", e))?;
 
     *ant_lock = Some(ant_child);
 
@@ -402,26 +391,16 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
         }
     });
 
-    // start anttp
+    // --- Start anttp ---
     let anttp_cmd = app
         .shell()
         .sidecar("anttp")
         .map_err(|e| format!("Failed to create anttp sidecar: {}", e))?;
 
-    let (mut anttp_rx, anttp_child) = match anttp_cmd
+    let (mut anttp_rx, anttp_child) = anttp_cmd
         .args(["-l", &format!("127.0.0.1:{}", anttp_port)])
         .spawn()
-    {
-        Ok(child) => child,
-        Err(e) => {
-            let err_str = e.to_string();
-            if err_str.contains("Permission denied") || err_str.contains("operation not permitted")
-            {
-                handle_permission_error(&window, "anttp");
-            }
-            return Err(format!("Failed to spawn anttp: {}", err_str));
-        }
-    };
+        .map_err(|e| format!("Failed to spawn anttp: {}", e))?;
 
     *anttp_lock = Some(anttp_child);
 
@@ -435,26 +414,16 @@ async fn start_server(app: AppHandle, window: Window) -> Result<String, String> 
         }
     });
 
-    // start dweb
+    // --- Start dweb ---
     let dweb_cmd = app
         .shell()
         .sidecar("dweb")
         .map_err(|e| format!("Failed to create dweb sidecar: {}", e))?;
 
-    let (mut dweb_rx, dweb_child) = match dweb_cmd
+    let (mut dweb_rx, dweb_child) = dweb_cmd
         .args(["serve", "--port", &dweb_port.to_string()])
         .spawn()
-    {
-        Ok(child) => child,
-        Err(e) => {
-            let err_str = e.to_string();
-            if err_str.contains("Permission denied") || err_str.contains("operation not permitted")
-            {
-                handle_permission_error(&window, "dweb");
-            }
-            return Err(format!("Failed to spawn dweb: {}", err_str));
-        }
-    };
+        .map_err(|e| format!("Failed to spawn dweb: {}", e))?;
 
     *dweb_lock = Some(dweb_child);
 
@@ -481,9 +450,23 @@ macro_rules! kill_child {
 
 #[tauri::command]
 fn stop_server() -> Result<String, String> {
-    kill_child!(ANT_PROCESS);
-    kill_child!(ANTPP_PROCESS);
-    kill_child!(DWEB_PROCESS);
+    let mut ant_lock = ANT_PROCESS.lock().unwrap();
+    let mut anttp_lock = ANTPP_PROCESS.lock().unwrap();
+    let mut dweb_lock = DWEB_PROCESS.lock().unwrap();
+
+    // helper to stop each sidecar safely
+    fn stop_process(name: &str, proc_opt: &mut Option<CommandChild>) -> Result<(), String> {
+        if let Some(mut child) = proc_opt.take() {
+            if let Err(e) = child.kill() {
+                return Err(format!("Failed to kill {}: {}", name, e));
+            }
+        }
+        Ok(())
+    }
+
+    stop_process("ant", &mut ant_lock)?;
+    stop_process("anttp", &mut anttp_lock)?;
+    stop_process("dweb", &mut dweb_lock)?;
 
     Ok("ant, anttp and dweb stopped".into())
 }
@@ -507,23 +490,41 @@ fn cleanup_processes() {
 }
 
 #[tauri::command]
-fn get_binary_version(binary_name: String) -> Result<String, String> {
-    use std::{path::PathBuf, process::Command};
+async fn get_binary_version(app: AppHandle, binary_name: String) -> Result<String, String> {
+    // Use Tauri sidecar API: it will resolve to the correct path
+    let cmd = app
+        .shell()
+        .sidecar(&binary_name)
+        .map_err(|e| format!("Failed to create sidecar for {}: {}", binary_name, e))?;
 
-    // figures out the correct filename based on OS
-    let target_triple = if cfg!(target_os = "macos") {
-        format!("{}-apple-darwin", std::env::consts::ARCH)
-    } else if cfg!(target_os = "windows") {
-        format!("{}-pc-windows-msvc.exe", std::env::consts::ARCH)
-    } else {
-        format!("{}-unknown-linux-gnu", std::env::consts::ARCH)
-    };
+    let (mut rx, _child) = cmd
+        .args(["--version"])
+        .spawn()
+        .map_err(|e| format!("Failed to spawn {}: {}", binary_name, e))?;
 
-    let filename = format!("{}-{}", binary_name, target_triple);
-    let mut path = PathBuf::from("bin");
-    path.push(filename);
+    // Collect stdout
+    let mut version_output = String::new();
+    while let Some(event) = rx.recv().await {
+        match event {
+            CommandEvent::Stdout(bytes) => {
+                version_output.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            CommandEvent::Stderr(bytes) => {
+                return Err(String::from_utf8_lossy(&bytes).trim().to_string());
+            }
+            CommandEvent::Error(e) => {
+                return Err(format!("Error from {}: {}", binary_name, e));
+            }
+            _ => {}
+        }
+    }
 
-    let output = Command::new(&path)
+    Ok(version_output.trim().to_string())
+}
+
+/// Helper: run the binary path with `--version` and return stdout or stderr as Err.
+fn run_binary_and_get_version(path: &PathBuf) -> Result<String, String> {
+    let output = Command::new(path)
         .arg("--version")
         .output()
         .map_err(|e| format!("Failed to start process {}: {}", path.display(), e))?;
@@ -576,7 +577,7 @@ pub fn run() {
                 *tx_guard = Some(shutdown_tx);
             });
 
-            // start the server and store the handle
+            // start the websocket server and store the handle
             let task: tauri::async_runtime::JoinHandle<()> =
                 tauri::async_runtime::spawn(async move {
                     crate::websockets::start_websocket_server(handle_clone, shutdown_rx).await;
@@ -589,11 +590,18 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|_window, event| {
+            if let WindowEvent::CloseRequested { api: _, .. } = event {
+                // cleanup on window close
                 cleanup_processes();
             }
         })
+        .on_window_event(|_window, event| {
+            if let WindowEvent::CloseRequested { .. } = event {
+                cleanup_processes(); // cleanup on window close
+            }
+        })
+        .plugin(tauri_plugin_shell::init()) // needed for CommandChild + sidecar
         .run(tauri::generate_context!())
         .expect("error while running safebox client application");
 }
