@@ -97,6 +97,16 @@ cargo tauri icon public/icon-gen.png
 
 ---
 
+## Other Products
+
+Make/find an issue & create a PR - All contributions appreciated!
+
+https://github.com/SafeMedia/safebox-server
+
+https://github.com/SafeMedia/autonomi-chrome-extension
+
+---
+
 ## Contribute
 
 Make/find an issue & create a PR - All contributions appreciated!
