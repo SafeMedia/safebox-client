@@ -39,10 +39,10 @@ Navigate to the directory containing the `.dmg` file using the `cd` command:
 cd ~/Downloads
 ```
 
-Then run this command from a terminal in the same folder as the .dmg file (be sure to update version number in command if newer version is released):
+Then run this command from a terminal in the same folder as the .dmg file (ensure to update version number in command if newer version is released). This step is only nessecary until the app is deployed to the App store:
 
 ```bash
-xattr -d com.apple.quarantine ./SafeBoxClient_0.1.6_aarch64.dmg
+xattr -d com.apple.quarantine ./SafeBoxClient_0.1.7_aarch64.dmg
 ```
 
 ---
@@ -60,7 +60,7 @@ cd ~/Downloads
 Then run this command from a terminal in the same folder as the .deb file (be sure to update version number in command if newer version is released):
 
 ```bash
-sudo apt install ./SafeBoxClient_0.1.3_amd64.deb
+sudo apt install ./SafeBoxClient_0.1.7_amd64.deb
 ```
 
 ---
