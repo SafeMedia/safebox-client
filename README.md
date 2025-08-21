@@ -11,6 +11,14 @@ Visit the latest releases page:
 
 ---
 
+## Other Products
+
+https://github.com/SafeMedia/safebox-server
+
+https://github.com/SafeMedia/autonomi-chrome-extension
+
+---
+
 ## Windows
 
 Download either the `.exe` or `.msi` file.
@@ -95,17 +103,10 @@ To re-generate the icons for the project, run:
 cargo tauri icon public/icon-gen.png
 ```
 
----
 
-## Other Products
+---
 
 Make/find an issue & create a PR - All contributions appreciated!
-
-https://github.com/SafeMedia/safebox-server
-
-https://github.com/SafeMedia/autonomi-chrome-extension
-
----
 
 ## Contribute
 
